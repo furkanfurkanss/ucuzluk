@@ -190,12 +190,18 @@ def search_gemini(query: str, api_key: str):
         '"puan": 5 üzerinden sayı ya da null, "teslimat": "kısa not ya da boş"}. '
         "Fiyatı bulamadığın ürünü ekleme, uydurma."
     )
-    r = requests.post(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-        headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-        json={"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}]},
-        timeout=90,
-    )
+    custom = get_secret("GEMINI_MODEL")
+    models = ([custom] if custom else []) + ["gemini-flash-latest", "gemini-3-flash-preview", "gemini-2.5-flash"]
+    r = None
+    for model in models:
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            json={"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}]},
+            timeout=90,
+        )
+        if r.status_code != 404:  # 404 = bu model adı hesabında yok, sıradakini dene
+            break
     r.raise_for_status()
     parts = r.json()["candidates"][0]["content"]["parts"]
     text = "".join(p.get("text", "") for p in parts)
